@@ -54,6 +54,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -194,11 +200,11 @@ private fun HudTopHeader(
             .fillMaxWidth()
             .background(AkatsukiPalette.ShadowMantle)
     ) {
-        // FILA 1: Identidad de Marca (Altura fija 66.dp — nunca cambia de tamaño)
+        // FILA 1: Identidad de Marca (Altura fija 72.dp — nunca cambia de tamaño)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(66.dp)
+                .height(72.dp)
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -209,18 +215,38 @@ private fun HudTopHeader(
                     .padding(end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Logo de la nube de Akatsuki sobresaliente, sin borde y con sombra roja por silueta
                 Box(
                     modifier = Modifier
-                        .size(width = 62.dp, height = 44.dp)
-                        .cyberChamferSurface(
-                            chamfer = 8.dp,
-                            backgroundColor = AkatsukiPalette.TacticalSurface,
-                            borderColor = AkatsukiPalette.AkatsukiCrimson.copy(alpha = 0.85f),
-                            borderWidth = 1.5.dp
-                        )
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                        .size(width = 76.dp, height = 52.dp)
+                        .drawBehind {
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        AkatsukiPalette.AkatsukiCrimson.copy(alpha = 0.42f),
+                                        AkatsukiPalette.DriedBlood.copy(alpha = 0.20f),
+                                        Color.Transparent
+                                    ),
+                                    radius = size.maxDimension * 0.68f
+                                )
+                            )
+                        },
                     contentAlignment = Alignment.Center
                 ) {
+                    // Sombra difuminada roja siguiendo la silueta exacta de la nube (SharinganNeon / AkatsukiCrimson)
+                    Image(
+                        painter = painterResource(id = R.drawable.akatsuki_logo),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        colorFilter = ColorFilter.tint(AkatsukiPalette.SharinganNeon.copy(alpha = 0.80f)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(
+                                radius = 9.dp,
+                                edgeTreatment = BlurredEdgeTreatment.Unbounded
+                            )
+                    )
+                    // Nube Akatsuki principal nítida y sobresaliente
                     Image(
                         painter = painterResource(id = R.drawable.akatsuki_logo),
                         contentDescription = "Logo Akatsuki",

@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Akatsuki // Link</string>
+    <string name="notification_channel_name">Akatsuki HTTPS Web Service</string>
+    <string name="notification_channel_desc">Mantiene activo el servidor HTTPS y la publicación mDNS durante transferencias de archivos.</string>
+</resources>

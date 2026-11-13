@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="obsidian_cloak">#FF07070C</color>
+    <color name="shadow_mantle">#FF0D0E17</color>
+    <color name="tactical_surface">#FF141624</color>
+    <color name="akatsuki_crimson">#FFE11D48</color>
+    <color name="rinnegan_cyan">#FF00F0FF</color>
+    <color name="cloud_white">#FFF8FAFC</color>
+</resources>

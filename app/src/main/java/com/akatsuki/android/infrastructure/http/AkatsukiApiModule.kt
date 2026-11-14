@@ -231,8 +231,7 @@ fun Application.configureAkatsukiApi(
             // 3.3 GET /api/v1/files/list?path=/storage/emulated/0 (Bearer Token)
             get("/files/list") {
                 call.requireAuthenticatedToken()
-                val requestedPath = call.request.queryParameters["path"]
-                    ?: throw InvalidRequestParameterException("El query parameter 'path' es obligatorio.")
+                val requestedPath = call.request.queryParameters["path"] ?.takeIf { it.isNotBlank() } ?: "/storage/emulated/0"
                 val listing = fileOperationsUseCases.listDirectory(requestedPath)
                 call.respond(HttpStatusCode.OK, listing.toDto())
             }

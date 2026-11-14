@@ -95,7 +95,7 @@ fun AkatsukiSplashScreen(
         bootStatusMessage = "VERIFYING TLS 1.3 SHA-256 FINGERPRINT..."
         delay(450L)
         bootProgress = 0.78f
-        bootStatusMessage = "PREPARING KTOR HTTPS & mDNS (_akatsuki._tcp.)..."
+        bootStatusMessage = "PREPARING KTOR HTTPS & mDNS (_akatsuki._tcp.local.)..."
         delay(450L)
         bootProgress = 1.0f
         bootStatusMessage = "SHINOBI NODE READY // ONLINE"

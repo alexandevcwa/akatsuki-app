@@ -95,6 +95,7 @@ import com.akatsuki.android.domain.model.ServerLifecycleState
 import com.akatsuki.android.domain.model.TransferDirection
 import com.akatsuki.android.domain.model.TransferStatus
 import com.akatsuki.android.domain.model.TransferTelemetryItem
+import com.akatsuki.android.infrastructure.network.AndroidNsdPublisher
 
 @Composable
 fun DashboardScreen(
@@ -425,8 +426,8 @@ private fun TofuPairingAndIdentityPanel(
                     .clickable { onCopyText("Endpoint HTTPS", state.httpsEndpoint) }
             )
             TelemetryDataCard(
-                label = "SERVICIO mDNS",
-                value = "_akatsuki._tcp. (${state.port})",
+                label = "mDNS (UDP ${AndroidNsdPublisher.MDNS_STANDARD_PORT})",
+                value = AndroidNsdPublisher.SERVICE_TYPE_FQDN,
                 valueColor = AkatsukiPalette.RinneganCyberCyan,
                 modifier = Modifier.weight(1f)
             )

@@ -66,13 +66,13 @@ internal data class NetworkInterfaceSnapshot(
 
 /**
  * Publicación de Servicio mDNS/NSD y Resolución de IP LAN (Parte 2 y Parte 4.4):
- * - Registra un NsdServiceInfo con:
- *   - serviceName = "AkatsukiNode"
- *   - serviceType = "_akatsuki._tcp."
- *   - port = puerto HTTPS configurado (8443 por defecto)
- *   - atributos TXT: "fp" (huella SHA-256), "id" (deviceId), "name" (alias opcional)
- * - Gestiona el ciclo de vida del WifiManager.MulticastLock y evita condiciones de carrera
- *   entre registro, desregistro asíncrono y callbacks tardíos de NsdManager.
+ * - En la red LAN (estándar DNS-SD / Rust `mdns-sd`) el servicio se anuncia sobre UDP 5353 como:
+ *   - FQDN: `_akatsuki._tcp.local.` (`AkatsukiNode._akatsuki._tcp.local.`)
+ *   - Puerto SRV destino: puerto HTTPS configurado (8443 por defecto)
+ *   - Atributos TXT: "fp" (huella SHA-256), "id" (deviceId), "name" (alias opcional)
+ * - Nota de Android `NsdManager`: `NsdServiceInfo.serviceType` NO debe incluir `.local.` porque
+ *   Android agrega el dominio `.local.` automáticamente; `NsdServiceInfo.port` corresponde al puerto
+ *   del servicio HTTPS anunciado (no al puerto UDP 5353 del daemon mDNS del sistema).
  */
 class AndroidNsdPublisher internal constructor(
     private val telemetryRepository: TelemetryRepository,
@@ -95,12 +95,25 @@ class AndroidNsdPublisher internal constructor(
 
     companion object {
         const val SERVICE_NAME_DEFAULT = "AkatsukiNode"
-        const val SERVICE_TYPE = "_akatsuki._tcp."
+        const val MDNS_STANDARD_PORT = 5353
+        // IMPORTANTE: En Android NsdServiceInfo.setServiceType NO debe llevar punto final ni .local
+        const val SERVICE_TYPE = "_akatsuki._tcp"
+        const val SERVICE_TYPE_FQDN = "_akatsuki._tcp.local."
         private const val MULTICAST_LOCK_TAG = "akatsuki_mdns_lock"
         private const val UNREGISTER_WAIT_TIMEOUT_MS = 600L
-        private const val MAX_TXT_FP_BYTES = 250
+        private const val MAX_TXT_FP_BYTES = 240
         private const val MAX_TXT_ID_BYTES = 64
         private const val MAX_TXT_NAME_BYTES = 64
+
+        internal fun normalizeAndroidServiceType(rawType: String): String {
+            val trimmed = rawType.trim().lowercase().trimEnd('.')
+            if (trimmed.isEmpty()) return SERVICE_TYPE
+            val withoutLocal = when {
+                trimmed.endsWith(".local") -> trimmed.removeSuffix(".local")
+                else -> trimmed
+            }.trimEnd('.')
+            return withoutLocal.ifEmpty { SERVICE_TYPE }
+        }
 
         private val EXCLUDED_INTERFACE_PREFIXES = listOf(
             "rmnet", "r_rmnet", "ccmni", "wwan", "pdp", "seth", "epdg",
@@ -325,6 +338,13 @@ class AndroidNsdPublisher internal constructor(
         }
 
         val acquiredLock = runCatching { multicastController.acquire(MULTICAST_LOCK_TAG) }.getOrNull()
+        if (acquiredLock == null) {
+            telemetryRepository.recordLog(
+                tag = "mDNS-WARN",
+                message = "No se pudo adquirir WifiManager.MulticastLock (verifica permiso CHANGE_WIFI_MULTICAST_STATE y estado Wi-Fi).",
+                severity = AuditSeverity.WARNING
+            )
+        }
         val cancelledBeforeRegister = synchronized(stateLock) {
             if (session.unpublishRequested || session.generation != currentGeneration || session.phase == RegistrationPhase.TERMINATED) {
                 true
@@ -342,7 +362,7 @@ class AndroidNsdPublisher internal constructor(
         val normalizedServiceName = serviceName.trim().ifBlank { SERVICE_NAME_DEFAULT }
         val request = MdnsRegistrationRequest(
             serviceName = normalizedServiceName,
-            serviceType = SERVICE_TYPE,
+            serviceType = normalizeAndroidServiceType(SERVICE_TYPE),
             port = port,
             txtAttributes = buildTxtAttributes(
                 fingerprintSha256 = fingerprintSha256,
@@ -489,7 +509,7 @@ class AndroidNsdPublisher internal constructor(
                     val finalName = resolvedServiceName.ifBlank { SERVICE_NAME_DEFAULT }
                     telemetryRepository.recordLog(
                         tag = "mDNS-NSD",
-                        message = "Servicio publicado: $finalName.$SERVICE_TYPE (Puerto $port)",
+                        message = "Servicio mDNS publicado: $finalName.$SERVICE_TYPE_FQDN (UDP $MDNS_STANDARD_PORT -> HTTPS:$port)",
                         severity = AuditSeverity.SUCCESS
                     )
                     session.onStatusChanged(true, finalName)

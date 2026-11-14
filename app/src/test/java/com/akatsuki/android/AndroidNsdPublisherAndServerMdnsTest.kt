@@ -134,7 +134,13 @@ class AndroidNsdPublisherAndServerMdnsTest {
         assertEquals(1, backend.registeredHandles.size)
         val handle = backend.registeredHandles.first()
         assertEquals("AkatsukiNode", handle.request.serviceName)
-        assertEquals("_akatsuki._tcp.", handle.request.serviceType)
+        assertEquals("_akatsuki._tcp", handle.request.serviceType)
+        assertEquals("_akatsuki._tcp.local.", AndroidNsdPublisher.SERVICE_TYPE_FQDN)
+        assertEquals(5353, AndroidNsdPublisher.MDNS_STANDARD_PORT)
+        assertEquals("_akatsuki._tcp", AndroidNsdPublisher.normalizeAndroidServiceType("_akatsuki._tcp.local."))
+        assertEquals("_akatsuki._tcp", AndroidNsdPublisher.normalizeAndroidServiceType("_akatsuki._tcp.local"))
+        assertEquals("_akatsuki._tcp", AndroidNsdPublisher.normalizeAndroidServiceType("_akatsuki._tcp."))
+        assertEquals("_akatsuki._tcp", AndroidNsdPublisher.normalizeAndroidServiceType("_akatsuki._tcp"))
         assertEquals(8443, handle.request.port)
         assertEquals(95, handle.request.txtAttributes["fp"]?.length)
         assertEquals("ak-node-android-01", handle.request.txtAttributes["id"])
@@ -494,5 +500,38 @@ class AndroidNsdPublisherAndServerMdnsTest {
         } finally {
             server.stopServer()
         }
+    }
+
+    @Test
+    fun `registra advertencia en telemetria cuando MulticastLock no se puede adquirir`() {
+        val telemetry = InMemoryTelemetryRepository()
+        val backend = FakeNsdBackend()
+        val nullMulticastController = object : MulticastLockController {
+            override fun acquire(tag: String): MulticastLockHandle? = null
+        }
+        val publisher = createPublisher(
+            telemetry = telemetry,
+            backend = backend,
+            multicast = FakeMulticastController()
+        )
+        val publisherWithNullLock = AndroidNsdPublisher(
+            telemetryRepository = telemetry,
+            nsdBackend = backend,
+            multicastController = nullMulticastController,
+            networkMonitor = NoOpNetworkMonitor(),
+            interfaceSnapshotProvider = { emptyList() }
+        )
+
+        publisherWithNullLock.publishMdnsService(
+            serviceName = "AkatsukiNode",
+            port = 8443,
+            fingerprintSha256 = "test-fp",
+            deviceId = "test-id",
+            deviceName = "test-name"
+        ) { _, _ -> }
+
+        val warnLogs = telemetry.auditLogs.value.filter { it.tag == "mDNS-WARN" }
+        assertEquals(1, warnLogs.size)
+        assertTrue(warnLogs.first().message.contains("No se pudo adquirir WifiManager.MulticastLock"))
     }
 }

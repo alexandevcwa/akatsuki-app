@@ -13,7 +13,8 @@ sealed interface ServerLifecycleState {
         val port: Int,
         val tlsCertFingerprintSha256: String,
         val nsdPublished: Boolean,
-        val startedAtIso: String
+        val startedAtIso: String,
+        val nsdServiceName: String? = null
     ) : ServerLifecycleState
     data class Error(val message: String) : ServerLifecycleState
 }

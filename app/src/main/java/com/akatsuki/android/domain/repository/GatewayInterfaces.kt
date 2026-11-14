@@ -92,6 +92,19 @@ interface NetworkDiscoveryGateway {
         deviceId: String,
         onStatusChanged: (Boolean) -> Unit
     )
+    fun publishMdnsService(
+        serviceName: String,
+        port: Int,
+        fingerprintSha256: String,
+        deviceId: String,
+        deviceName: String?,
+        onStatusChanged: (isPublished: Boolean, resolvedServiceName: String?) -> Unit
+    ) {
+        publishMdnsService(serviceName, port, fingerprintSha256, deviceId) { published ->
+            onStatusChanged(published, if (published) serviceName else null)
+        }
+    }
+    fun observeNetworkChanges(onNetworkChanged: () -> Unit): AutoCloseable = AutoCloseable {}
     fun unpublishMdnsService()
 }
 
@@ -103,6 +116,7 @@ interface NodeConfigRepository {
     val deviceNameFlow: StateFlow<String>
     val portFlow: StateFlow<Int>
 
+    suspend fun awaitInitialized() {}
     suspend fun updateDeviceName(newName: String)
     suspend fun updatePort(newPort: Int)
 }
@@ -116,6 +130,9 @@ interface TelemetryRepository {
     val auditLogs: StateFlow<List<SecurityAuditLog>>
 
     fun updateServerState(state: ServerLifecycleState)
+    fun updateServerState(transform: (ServerLifecycleState) -> ServerLifecycleState) {
+        updateServerState(transform(serverState.value))
+    }
     fun upsertTransfer(item: TransferTelemetryItem)
     fun recordLog(tag: String, message: String, severity: AuditSeverity = AuditSeverity.INFO)
     fun clearLogs()

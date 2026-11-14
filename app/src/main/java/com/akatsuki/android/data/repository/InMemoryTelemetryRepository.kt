@@ -38,6 +38,10 @@ class InMemoryTelemetryRepository : TelemetryRepository {
         _serverState.value = state
     }
 
+    override fun updateServerState(transform: (ServerLifecycleState) -> ServerLifecycleState) {
+        _serverState.update(transform)
+    }
+
     override fun upsertTransfer(item: TransferTelemetryItem) {
         _transfers.update { current ->
             val index = current.indexOfFirst { it.id == item.id }

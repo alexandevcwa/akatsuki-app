@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.akatsuki.android.domain.repository.NodeConfigRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,6 +33,8 @@ class NodeConfigDataStoreRepository(
         const val DEFAULT_PORT = 8443
     }
 
+    private val initialized = CompletableDeferred<Unit>()
+
     private val _deviceIdFlow = MutableStateFlow("ak-node-android-01")
     override val deviceIdFlow: StateFlow<String> = _deviceIdFlow.asStateFlow()
 
@@ -43,30 +46,39 @@ class NodeConfigDataStoreRepository(
 
     init {
         scope.launch {
-            val prefs = context.akatsukiDataStore.data.first()
-            val storedId = prefs[KEY_DEVICE_ID]
-            val storedName = prefs[KEY_DEVICE_NAME]
-            val storedPort = prefs[KEY_SERVER_PORT]
+            try {
+                val prefs = context.akatsukiDataStore.data.first()
+                val storedId = prefs[KEY_DEVICE_ID]
+                val storedName = prefs[KEY_DEVICE_NAME]
+                val storedPort = prefs[KEY_SERVER_PORT]
 
-            val finalId = storedId ?: "ak-node-android-${UUID.randomUUID().toString().take(6)}"
-            val finalName = storedName ?: buildDefaultDeviceName()
-            val finalPort = storedPort ?: DEFAULT_PORT
+                val finalId = storedId ?: "ak-node-android-${UUID.randomUUID().toString().take(6)}"
+                val finalName = storedName ?: buildDefaultDeviceName()
+                val finalPort = storedPort ?: DEFAULT_PORT
 
-            _deviceIdFlow.value = finalId
-            _deviceNameFlow.value = finalName
-            _portFlow.value = finalPort
+                _deviceIdFlow.value = finalId
+                _deviceNameFlow.value = finalName
+                _portFlow.value = finalPort
 
-            if (storedId == null || storedName == null || storedPort == null) {
-                context.akatsukiDataStore.edit { mutable ->
-                    mutable[KEY_DEVICE_ID] = finalId
-                    mutable[KEY_DEVICE_NAME] = finalName
-                    mutable[KEY_SERVER_PORT] = finalPort
+                if (storedId == null || storedName == null || storedPort == null) {
+                    context.akatsukiDataStore.edit { mutable ->
+                        mutable[KEY_DEVICE_ID] = finalId
+                        mutable[KEY_DEVICE_NAME] = finalName
+                        mutable[KEY_SERVER_PORT] = finalPort
+                    }
                 }
+            } finally {
+                initialized.complete(Unit)
             }
         }
     }
 
+    override suspend fun awaitInitialized() {
+        initialized.await()
+    }
+
     override suspend fun updateDeviceName(newName: String) {
+        initialized.await()
         val sanitized = newName.trim().ifEmpty { buildDefaultDeviceName() }
         _deviceNameFlow.value = sanitized
         context.akatsukiDataStore.edit { prefs ->
@@ -75,6 +87,7 @@ class NodeConfigDataStoreRepository(
     }
 
     override suspend fun updatePort(newPort: Int) {
+        initialized.await()
         val validPort = newPort.coerceIn(1024, 65535)
         _portFlow.value = validPort
         context.akatsukiDataStore.edit { prefs ->

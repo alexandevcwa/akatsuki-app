@@ -64,6 +64,7 @@ class DashboardViewModel(
                         message = "Certificado X.509 regenerado. Nueva huella SHA-256: ${bundle.fingerprintSha256.take(17)}...",
                         severity = AuditSeverity.WARNING
                     )
+                    container.ktorServer.restartIfRunning()
                 }
             }
             is RefreshNetworkAndPermissions -> {
@@ -84,14 +85,21 @@ class DashboardViewModel(
             }
             is SaveNodeConfig -> {
                 viewModelScope.launch {
+                    val previousName = container.nodeConfigRepository.deviceNameFlow.value
+                    val previousPort = container.nodeConfigRepository.portFlow.value
                     container.nodeConfigRepository.updateDeviceName(intent.newDeviceName)
                     container.nodeConfigRepository.updatePort(intent.newPort)
+                    val updatedName = container.nodeConfigRepository.deviceNameFlow.value
+                    val updatedPort = container.nodeConfigRepository.portFlow.value
                     _uiState.update { it.copy(showNodeConfigModal = false) }
                     container.telemetryRepository.recordLog(
                         tag = "NODE-CFG",
-                        message = "Configuración actualizada: '${intent.newDeviceName}' en puerto ${intent.newPort}",
+                        message = "Configuración actualizada: '$updatedName' en puerto $updatedPort",
                         severity = AuditSeverity.INFO
                     )
+                    if (previousPort != updatedPort || previousName != updatedName) {
+                        container.ktorServer.restartIfRunning()
+                    }
                 }
             }
             is RevokeSession -> {

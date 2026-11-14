@@ -47,8 +47,10 @@ class TlsCertificateManager(
     companion object {
         private const val KEYSTORE_FILE_NAME = "akatsuki_node_tls.p12"
         private const val KEY_ALIAS = "akatsuki_https_node"
-        private val KEYSTORE_PASSWORD = "akatsuki_shinobi_tls_secret".toCharArray()
+        private const val KEYSTORE_PASSWORD_SECRET = "akatsuki_shinobi_tls_secret"
         private const val VALIDITY_DAYS = 3650L // 10 años
+
+        private fun passwordChars(): CharArray = KEYSTORE_PASSWORD_SECRET.toCharArray()
 
         init {
             if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
@@ -75,7 +77,7 @@ class TlsCertificateManager(
     private var cachedBundle: TlsCertificateBundle? = null
 
     override suspend fun getOrCreateCertificateBundle(): TlsCertificateBundle = mutex.withLock {
-        cachedBundle?.let { return it }
+        cachedBundle?.let { return it.copy(keyStorePassword = passwordChars()) }
 
         withContext(Dispatchers.IO) {
             if (!keyStoreDir.exists()) {
@@ -85,12 +87,12 @@ class TlsCertificateManager(
             if (ksFile.exists()) {
                 runCatching { loadExistingKeyStore(ksFile) }.getOrNull()?.let { loaded ->
                     cachedBundle = loaded
-                    return@withContext loaded
+                    return@withContext loaded.copy(keyStorePassword = passwordChars())
                 }
             }
             val generated = generateAndPersistBundle(ksFile)
             cachedBundle = generated
-            generated
+            generated.copy(keyStorePassword = passwordChars())
         }
     }
 
@@ -105,14 +107,14 @@ class TlsCertificateManager(
             }
             val generated = generateAndPersistBundle(ksFile)
             cachedBundle = generated
-            generated
+            generated.copy(keyStorePassword = passwordChars())
         }
     }
 
     private fun loadExistingKeyStore(ksFile: File): TlsCertificateBundle {
         val keyStore = KeyStore.getInstance("PKCS12")
         FileInputStream(ksFile).use { fis ->
-            keyStore.load(fis, KEYSTORE_PASSWORD)
+            keyStore.load(fis, passwordChars())
         }
         val cert = keyStore.getCertificate(KEY_ALIAS) as? X509Certificate
             ?: throw IllegalStateException("Certificado X.509 no encontrado bajo alias $KEY_ALIAS")
@@ -125,7 +127,7 @@ class TlsCertificateManager(
         return TlsCertificateBundle(
             keyStore = keyStore,
             keyAlias = KEY_ALIAS,
-            keyStorePassword = KEYSTORE_PASSWORD,
+            keyStorePassword = passwordChars(),
             fingerprintSha256 = fingerprint,
             algorithmDescription = "$cleanKeyAlg • TLS 1.3"
         )
@@ -180,11 +182,11 @@ class TlsCertificateManager(
         certificate: X509Certificate
     ): KeyStore {
         val keyStore = KeyStore.getInstance(type)
-        keyStore.load(null, KEYSTORE_PASSWORD)
+        keyStore.load(null, passwordChars())
         keyStore.setKeyEntry(
             KEY_ALIAS,
             keyPair.private,
-            KEYSTORE_PASSWORD,
+            passwordChars(),
             arrayOf(certificate)
         )
         return keyStore
@@ -197,13 +199,13 @@ class TlsCertificateManager(
         algLabel: String
     ): TlsCertificateBundle {
         FileOutputStream(ksFile).use { fos ->
-            keyStore.store(fos, KEYSTORE_PASSWORD)
+            keyStore.store(fos, passwordChars())
         }
         val fingerprint = computeSha256Fingerprint(certificate)
         return TlsCertificateBundle(
             keyStore = keyStore,
             keyAlias = KEY_ALIAS,
-            keyStorePassword = KEYSTORE_PASSWORD,
+            keyStorePassword = passwordChars(),
             fingerprintSha256 = fingerprint,
             algorithmDescription = algLabel
         )

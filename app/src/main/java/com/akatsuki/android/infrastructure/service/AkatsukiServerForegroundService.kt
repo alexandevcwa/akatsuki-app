@@ -134,7 +134,7 @@ class AkatsukiServerForegroundService : LifecycleService() {
 
     override fun onDestroy() {
         val container = (application as AkatsukiApplication).appContainer
-        lifecycleScope.launch {
+        container.applicationScope.launch {
             container.ktorServer.stopServer()
         }
         releaseWakeLock()

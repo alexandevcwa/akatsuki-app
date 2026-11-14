@@ -16,6 +16,9 @@ import com.akatsuki.android.infrastructure.crypto.TlsCertificateManager
 import com.akatsuki.android.infrastructure.http.AkatsukiKtorServer
 import com.akatsuki.android.infrastructure.network.AndroidNsdPublisher
 import com.akatsuki.android.infrastructure.storage.AndroidFileSystemGateway
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import java.io.File
 
 /**
@@ -24,6 +27,10 @@ import java.io.File
  */
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
+
+    val applicationScope: CoroutineScope by lazy {
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
 
     val telemetryRepository: TelemetryRepository by lazy {
         InMemoryTelemetryRepository()

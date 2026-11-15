@@ -2,18 +2,18 @@
   <img src="akatsuki-logo.png" alt="Akatsuki // Link Logo" width="140" />
 </p>
 
-<h1 align="center">Akatsuki // Link (Android Node)</h1>
+<h1 align="center">Akatsuki (Android Node)</h1>
 
 <p align="center">
   <strong>Servidor web HTTPS embebido para Android orientado a la transferencia segura de archivos en red local.</strong><br/>
-  Nodo móvil oficial del ecosistema <em>Akatsuki // Shinobi Secure File Transfer</em>, diseñado para operar junto al cliente de escritorio <code>akatsuki-desktop</code> (Tauri v2 / Rust).
+  Nodo móvil oficial del ecosistema <em>Akatsuki // Shinobi Secure File Transfer</em>, diseñado para operar junto al cliente de escritorio <code>akatsuki-desktop</code>.
 </p>
 
 ---
 
 ## 1. Descripción del Proyecto
 
-**Akatsuki // Link** (`com.akatsuki.android`) convierte un dispositivo Android en un nodo servidor **HTTPS** autónomo dentro de la red local (Wi-Fi / Hotspot / USB Tethering), permitiendo explorar el almacenamiento del teléfono y transferir archivos de gran tamaño hacia y desde una PC sin depender de cables USB/MTP ni servidores externos en la nube.
+**Akatsuki** (`com.akatsuki.android`) convierte un dispositivo Android en un nodo servidor **HTTPS** autónomo dentro de la red local (Wi-Fi / Hotspot / USB Tethering), permitiendo explorar el almacenamiento del teléfono y transferir archivos de gran tamaño hacia y desde una PC sin depender de cables USB/MTP ni servidores externos en la nube.
 
 ### Capacidades Clave
 - **Servidor HTTPS Embebido:** Motor **Ktor + Netty** ejecutándose en el puerto configurable `8443` dentro de un `ForegroundService` (`dataSync`) con `PARTIAL_WAKE_LOCK` para transferencias prolongadas con la pantalla apagada.
@@ -38,8 +38,8 @@ El proyecto sigue **Clean Architecture** combinada con **MVI** en la capa de pre
 
 ```mermaid
 flowchart LR
-    PC["Cliente PC (akatsuki-desktop / Rust)"] -->|mDNS _akatsuki._tcp. + HTTPS TLS| Ktor["AkatsukiKtorServer (Ktor + Netty)"]
-    subgraph Android["Nodo Android (Akatsuki // Link)"]
+    PC["Cliente PC (akatsuki-desktop)"] -->|mDNS _akatsuki._tcp. + HTTPS TLS| Ktor["AkatsukiKtorServer (Ktor + Netty)"]
+    subgraph Android["Nodo Android (Akatsuki)"]
         Service["AkatsukiServerForegroundService"] --> Ktor
         Ktor --> API["AkatsukiApiModule.kt (configureAkatsukiApi)"]
         API --> UC["Casos de Uso (Domain)"]
@@ -126,3 +126,10 @@ flowchart LR
 
 ### Documentación Complementaria
 - [Especificación Técnica de Diseño y API Android](docs/AKATSUKI_DESIGN_AND_ANDROID_API_SPEC.md): Paleta completa, tokens tipográficos, geometría poligonal HUD y contratos JSON detallados.
+
+---
+
+## 5. Licencia
+
+Este proyecto se distribuye bajo la licencia **GNU General Public License v3.0 (GPLv3)**. Consulta el archivo [LICENSE](LICENSE) para obtener más detalles.
+

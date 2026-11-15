@@ -530,7 +530,7 @@ class AndroidNsdPublisherAndServerMdnsTest {
             deviceName = "test-name"
         ) { _, _ -> }
 
-        val warnLogs = telemetry.auditLogs.value.filter { it.tag == "mDNS-WARN" }
+        val warnLogs = telemetry.auditLogs.value.filter { it.tag.equals("mDNS-WARN", ignoreCase = true) }
         assertEquals(1, warnLogs.size)
         assertTrue(warnLogs.first().message.contains("No se pudo adquirir WifiManager.MulticastLock"))
     }

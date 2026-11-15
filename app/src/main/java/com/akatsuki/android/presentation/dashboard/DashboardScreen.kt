@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.akatsuki.android.R
@@ -85,6 +86,7 @@ import com.akatsuki.android.core.designsystem.components.ListItemText
 import com.akatsuki.android.core.designsystem.components.MonoHash
 import com.akatsuki.android.core.designsystem.components.MonoTelemetry
 import com.akatsuki.android.core.designsystem.shape.cyberChamferSurface
+import com.akatsuki.android.core.designsystem.theme.AkatsukiCyberpunkTheme
 import com.akatsuki.android.core.designsystem.theme.AkatsukiPalette
 import com.akatsuki.android.core.designsystem.theme.AkatsukiTheme
 import com.akatsuki.android.domain.model.ActiveSession
@@ -179,6 +181,18 @@ fun DashboardScreen(
             onSave = { name, port ->
                 onIntent(HudIntent.SaveNodeConfig(name, port))
             }
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun DashboardScreenPreview() {
+    AkatsukiCyberpunkTheme {
+        DashboardScreen(
+            state = HudUiState(),
+            onIntent = {},
+            onRequestStoragePermission = {}
         )
     }
 }

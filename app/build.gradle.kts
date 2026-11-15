@@ -6,14 +6,12 @@ plugins {
 
 android {
     namespace = "com.akatsuki.android"
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.akatsuki.android"
         minSdk = 33
-        targetSdk = 37
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
 

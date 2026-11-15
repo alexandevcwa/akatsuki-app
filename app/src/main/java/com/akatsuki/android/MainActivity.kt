@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
         DashboardViewModel.provideFactory(
             container = app.appContainer,
             onStartForegroundServer = {
-                requestNotificationPermissionIfNeeded()
+                requestNetworkPermissionsIfNeeded()
                 AkatsukiServerForegroundService.startService(this)
             },
             onStopForegroundServer = {
@@ -43,8 +43,8 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
+    private val runtimePermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> }
 
     private val storageSettingsLauncher = registerForActivityResult(
@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        requestNetworkPermissionsIfNeeded()
 
         setContent {
             AkatsukiCyberpunkTheme {
@@ -88,15 +89,18 @@ class MainActivity : ComponentActivity() {
         viewModel.onIntent(HudIntent.RefreshNetworkAndPermissions)
     }
 
-    private fun requestNotificationPermissionIfNeeded() {
+    private fun requestNetworkPermissionsIfNeeded() {
+        val permissionsToRequest = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            }
+        }
+        if (permissionsToRequest.isNotEmpty()) {
+            runtimePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 

@@ -82,6 +82,8 @@ class AndroidNsdPublisher internal constructor(
     private val interfaceSnapshotProvider: () -> List<NetworkInterfaceSnapshot>
 ) : NetworkDiscoveryGateway {
 
+    private val directAnnouncer = DirectMdnsAnnouncer(telemetryRepository)
+
     constructor(
         context: Context,
         telemetryRepository: TelemetryRepository
@@ -96,7 +98,6 @@ class AndroidNsdPublisher internal constructor(
     companion object {
         const val SERVICE_NAME_DEFAULT = "AkatsukiNode"
         const val MDNS_STANDARD_PORT = 5353
-        // IMPORTANTE: En Android NsdServiceInfo.setServiceType NO debe llevar punto final ni .local
         const val SERVICE_TYPE = "_akatsuki._tcp"
         const val SERVICE_TYPE_FQDN = "_akatsuki._tcp.local."
         private const val MULTICAST_LOCK_TAG = "akatsuki_mdns_lock"
@@ -123,21 +124,21 @@ class AndroidNsdPublisher internal constructor(
 
         internal fun selectBestLanIpv4Address(interfaces: List<NetworkInterfaceSnapshot>): String {
             val candidates = interfaces
-                .filter { iface ->
-                    iface.isUp &&
-                        !iface.isLoopback &&
-                        !iface.isPointToPoint &&
-                        !isExcludedInterface(iface.name)
+                .filter { face ->
+                    face.isUp &&
+                        !face.isLoopback &&
+                        !face.isPointToPoint &&
+                        !isExcludedInterface(face.name)
                 }
                 .sortedBy { interfacePriority(it.name) }
 
-            for (iface in candidates) {
-                val priority = interfacePriority(iface.name)
-                val validAddresses = iface.ipv4Addresses.filter { addr ->
-                    !addr.isLoopbackAddress &&
-                        !addr.isLinkLocalAddress &&
-                        !addr.isMulticastAddress &&
-                        !addr.isAnyLocalAddress
+            for ((name, _, _, _, ipv4Addresses) in candidates) {
+                val priority = interfacePriority(name)
+                val validAddresses = ipv4Addresses.filter { adder ->
+                    !adder.isLoopbackAddress &&
+                        !adder.isLinkLocalAddress &&
+                        !adder.isMulticastAddress &&
+                        !adder.isAnyLocalAddress
                 }
                 val preferred = validAddresses.firstOrNull { it.isSiteLocalAddress }
                     ?: if (priority < 4) validAddresses.firstOrNull() else null
@@ -320,7 +321,10 @@ class AndroidNsdPublisher internal constructor(
             executeTeardown(previousTeardown)
             if (previousTeardown.awaitLatch != null) {
                 runCatching {
-                    previousTeardown.awaitLatch.await(UNREGISTER_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    previousTeardown.awaitLatch.await(
+                        UNREGISTER_WAIT_TIMEOUT_MS,
+                        TimeUnit.MILLISECONDS
+                    )
                 }
             }
         }
@@ -337,12 +341,27 @@ class AndroidNsdPublisher internal constructor(
             activeSession = session
         }
 
-        val acquiredLock = runCatching { multicastController.acquire(MULTICAST_LOCK_TAG) }.getOrNull()
+        val normalizedServiceName = serviceName.trim().ifBlank { SERVICE_NAME_DEFAULT }
+        val localIp = resolveLocalLanIpAddress()
+        telemetryRepository.recordLog(
+            tag = "mDNS-INFO",
+            message = "Iniciando publicación mDNS para '$normalizedServiceName' (IP LAN: $localIp, Puerto HTTPS: $port)...",
+            severity = AuditSeverity.INFO
+        )
+
+        val acquiredLock =
+            runCatching { multicastController.acquire(MULTICAST_LOCK_TAG) }.getOrNull()
         if (acquiredLock == null) {
             telemetryRepository.recordLog(
                 tag = "mDNS-WARN",
                 message = "No se pudo adquirir WifiManager.MulticastLock (verifica permiso CHANGE_WIFI_MULTICAST_STATE y estado Wi-Fi).",
                 severity = AuditSeverity.WARNING
+            )
+        } else {
+            telemetryRepository.recordLog(
+                tag = "mDNS-INFO",
+                message = "MulticastLock (WifiManager) adquirido con éxito [tag=$MULTICAST_LOCK_TAG].",
+                severity = AuditSeverity.INFO
             )
         }
         val cancelledBeforeRegister = synchronized(stateLock) {
@@ -359,7 +378,6 @@ class AndroidNsdPublisher internal constructor(
             return
         }
 
-        val normalizedServiceName = serviceName.trim().ifBlank { SERVICE_NAME_DEFAULT }
         val request = MdnsRegistrationRequest(
             serviceName = normalizedServiceName,
             serviceType = normalizeAndroidServiceType(SERVICE_TYPE),
@@ -371,11 +389,31 @@ class AndroidNsdPublisher internal constructor(
             )
         )
 
+        telemetryRepository.recordLog(
+            tag = "mDNS-INFO",
+            message = "Enviando solicitud a NsdManager: Tipo='${request.serviceType}', Nombre='$normalizedServiceName', Puerto=$port, TXT=${request.txtAttributes}",
+            severity = AuditSeverity.INFO
+        )
+
+        // Iniciar emisor directo UDP Multicast en paralelo con NsdManager
+        directAnnouncer.startAnnouncing(
+            serviceName = normalizedServiceName,
+            serviceType = SERVICE_TYPE,
+            port = port,
+            txtAttributes = request.txtAttributes,
+            localIpAddress = localIp
+        )
+
         val callbacks = createCallbacks(session = session, port = port)
 
         runCatching {
             nsdBackend.registerService(request, callbacks)
         }.onSuccess { handle ->
+            telemetryRepository.recordLog(
+                tag = "mDNS-INFO",
+                message = "NsdManager.registerService invocado correctamente. Esperando callback onRegistered del sistema...",
+                severity = AuditSeverity.INFO
+            )
             var unregisterNow: NsdRegistrationHandle? = null
             synchronized(stateLock) {
                 session.listener = handle
@@ -403,6 +441,12 @@ class AndroidNsdPublisher internal constructor(
     }
 
     override fun unpublishMdnsService() {
+        directAnnouncer.stopAnnouncing()
+        telemetryRepository.recordLog(
+            tag = "mDNS-INFO",
+            message = "Solicitando despublicación / cancelación del servicio mDNS...",
+            severity = AuditSeverity.INFO
+        )
         val teardown: TeardownAction?
         synchronized(stateLock) {
             currentGeneration++
@@ -421,6 +465,7 @@ class AndroidNsdPublisher internal constructor(
     )
 
     private fun prepareTeardownLocked(session: RegistrationSession): TeardownAction {
+        directAnnouncer.stopAnnouncing()
         session.unpublishRequested = true
         val lockToRelease = session.multicastLock
         session.multicastLock = null
@@ -470,7 +515,12 @@ class AndroidNsdPublisher internal constructor(
     private fun dispatchUnregister(session: RegistrationSession, handle: NsdRegistrationHandle) {
         runCatching {
             nsdBackend.unregisterService(handle)
-        }.onFailure {
+        }.onFailure { e ->
+            telemetryRepository.recordLog(
+                tag = "mDNS-WARN",
+                message = "Excepción al desregistrar servicio mDNS: ${e.message}",
+                severity = AuditSeverity.WARNING
+            )
             completeSessionAsTerminated(session)
         }
     }
@@ -509,7 +559,7 @@ class AndroidNsdPublisher internal constructor(
                     val finalName = resolvedServiceName.ifBlank { SERVICE_NAME_DEFAULT }
                     telemetryRepository.recordLog(
                         tag = "mDNS-NSD",
-                        message = "Servicio mDNS publicado: $finalName.$SERVICE_TYPE_FQDN (UDP $MDNS_STANDARD_PORT -> HTTPS:$port)",
+                        message = "Servicio mDNS publicado: $finalName.$SERVICE_TYPE_FQDN (UDP $MDNS_STANDARD_PORT -> HTTPS:$port). Anuncios mDNS activos.",
                         severity = AuditSeverity.SUCCESS
                     )
                     session.onStatusChanged(true, finalName)
@@ -519,9 +569,15 @@ class AndroidNsdPublisher internal constructor(
             override fun onRegistrationFailed(errorCode: Int) {
                 val shouldNotify = completeSessionAsTerminated(session)
                 if (shouldNotify) {
+                    val errorDescription = when (errorCode) {
+                        0 -> "FAILURE_INTERNAL_ERROR (0) - Error interno en NsdManager"
+                        3 -> "FAILURE_ALREADY_ACTIVE (3) - Servicio mDNS ya activo"
+                        4 -> "FAILURE_MAX_LIMIT (4) - Límite de servicios mDNS alcanzado"
+                        else -> "Código $errorCode"
+                    }
                     telemetryRepository.recordLog(
                         tag = "mDNS-WARN",
-                        message = "No se pudo registrar mDNS (código $errorCode). Conexión directa IP+PIN disponible.",
+                        message = "No se pudo registrar mDNS ($errorDescription). Conexión directa IP+PIN disponible.",
                         severity = AuditSeverity.WARNING
                     )
                     session.onStatusChanged(false, null)
@@ -529,6 +585,11 @@ class AndroidNsdPublisher internal constructor(
             }
 
             override fun onUnregistered() {
+                telemetryRepository.recordLog(
+                    tag = "mDNS-INFO",
+                    message = "Servicio mDNS desregistrado del NsdManager de Android.",
+                    severity = AuditSeverity.INFO
+                )
                 val shouldNotify = completeSessionAsTerminated(session)
                 if (shouldNotify) {
                     session.onStatusChanged(false, null)
@@ -536,6 +597,11 @@ class AndroidNsdPublisher internal constructor(
             }
 
             override fun onUnregistrationFailed(errorCode: Int) {
+                telemetryRepository.recordLog(
+                    tag = "mDNS-WARN",
+                    message = "Fallo al desregistrar servicio mDNS en NsdManager (código $errorCode).",
+                    severity = AuditSeverity.WARNING
+                )
                 val shouldNotify = completeSessionAsTerminated(session)
                 if (shouldNotify) {
                     session.onStatusChanged(false, null)

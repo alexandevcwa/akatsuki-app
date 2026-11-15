@@ -22,8 +22,6 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * Complementa a `NsdManager` de Android emitiendo directamente paquetes binarios DNS-SD
  * sobre UDP 5353 hacia la IP Multicast 224.0.0.251 y Broadcast 255.255.255.255.
- * Esto garantiza que el anuncio mDNS llegue a Wireshark, avahi y clientes mDNS incluso en
- * Android 14/15/16 y redes tipo Hotspot/SoftAP.
  */
 class DirectMdnsAnnouncer(
     private val telemetryRepository: TelemetryRepository
@@ -121,8 +119,8 @@ class DirectMdnsAnnouncer(
                         DatagramSocket(null).use { socket ->
                             socket.reuseAddress = true
                             socket.bind(java.net.InetSocketAddress(inetAdder, 0))
-                            multicastAddr?.let { mAddr ->
-                                socket.send(DatagramPacket(packetBytes, packetBytes.size, mAddr, 5353))
+                            multicastAddr?.let { mAdder ->
+                                socket.send(DatagramPacket(packetBytes, packetBytes.size, mAdder, 5353))
                                 successCount++
                             }
                         }

@@ -80,7 +80,7 @@ class SessionTokenManager(
     ): ActiveSession {
         var currentPin = _pinState.value
 
-        // 1. Verificar si hay bloqueo activo por fuerza bruta (429 Too Many Requests)
+        // Verificar si hay bloqueo activo por fuerza bruta (429 Too Many Requests)
         if (currentPin.isLocked(nowMillis)) {
             val retryAfterSec = ((currentPin.lockedUntilMillis - nowMillis + 999L) / 1000L).coerceAtLeast(1L)
             throw TooManyPinAttemptsException(retryAfterSeconds = retryAfterSec)
@@ -92,14 +92,14 @@ class SessionTokenManager(
             _pinState.value = currentPin
         }
 
-        // 2. Verificar si el PIN expiró (5 minutos)
+        // Verificar si el PIN expiró (5 minutos)
         if (currentPin.isExpired(nowMillis)) {
             val rotated = generateNewPinState(nowMillis)
             _pinState.value = rotated
             throw UnauthorizedAccessException("El PIN temporal ha expirado. Se ha generado un nuevo PIN en el dispositivo Android.")
         }
 
-        // 3. Comparación en tiempo constante del PIN de 6 dígitos
+        // Comparación en tiempo constante del PIN de 6 dígitos
         val isMatch = MessageDigest.isEqual(
             currentPin.pinCode.toByteArray(StandardCharsets.UTF_8),
             pinCode.trim().toByteArray(StandardCharsets.UTF_8)
@@ -123,7 +123,7 @@ class SessionTokenManager(
             }
         }
 
-        // 4. Éxito: Rotar PIN usado para evitar replay y emitir Bearer Token JWT HMAC-SHA256
+        // Éxito: Rotar PIN usado para evitar replay y emitir Bearer Token JWT HMAC-SHA256
         _pinState.value = generateNewPinState(nowMillis)
 
         val connectedAtIso = DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(nowMillis))

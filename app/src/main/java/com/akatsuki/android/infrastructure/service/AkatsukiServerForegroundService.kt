@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
- * Servicio en Primer Plano (ForegroundService) según la Parte 4.2 de la especificación:
+ * Servicio en Primer Plano (ForegroundService)
  * - Mantiene activo el servidor Ktor HTTPS y la publicación mDNS durante transferencias grandes
  *   incluso con la pantalla apagada.
  * - Muestra una notificación persistente estilo Akatsuki con la IP local, el PIN activo
@@ -146,7 +146,7 @@ class AkatsukiServerForegroundService : LifecycleService() {
         val powerManager = getSystemService(PowerManager::class.java) ?: return
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "AkatsukiNode::HttpsTransferWakeLock"
+            "AkatsukiServer::HttpsTransferWakeLock"
         ).apply {
             setReferenceCounted(false)
             acquire(6 * 60 * 60 * 1000L) // Hasta 6 horas continuas

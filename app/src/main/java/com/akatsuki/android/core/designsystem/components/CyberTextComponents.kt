@@ -158,7 +158,7 @@ fun MonoTelemetry(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = AkatsukiPalette.NeonTelemetry,
-    maxLines: Int = 1
+    maxLines: Int = 1,
 ) {
     Text(
         text = text,

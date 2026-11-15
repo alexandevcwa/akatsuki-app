@@ -57,7 +57,7 @@ import java.nio.charset.StandardCharsets
 
 /**
  * Configuración modular de Ktor que implementa el Catálogo Completo de Endpoints REST y Streaming
- * especificados en la Parte 3 de AKATSUKI_DESIGN_AND_ANDROID_API_SPEC.md.
+ * especificados
  */
 fun Application.configureAkatsukiApi(
     nodeConfigRepository: NodeConfigRepository,
@@ -185,7 +185,7 @@ fun Application.configureAkatsukiApi(
     routing {
         route("/api/v1") {
 
-            // 3.1 GET /api/v1/health (Pública)
+            // GET /api/v1/health (Pública)
             get("/health") {
                 val certBundle = certificateRepository.getOrCreateCertificateBundle()
                 val releaseVersion = Build.VERSION.RELEASE ?: "15"
@@ -202,7 +202,7 @@ fun Application.configureAkatsukiApi(
                 )
             }
 
-            // 3.2 POST /api/v1/auth/pair (PIN de 6 dígitos)
+            // POST /api/v1/auth/pair (PIN de 6 dígitos)
             post("/auth/pair") {
                 val requestDto = runCatching { call.receive<PairRequestDto>() }.getOrElse {
                     throw InvalidRequestParameterException("Cuerpo JSON inválido. Se requiere { clientName, pinCode }.")
@@ -214,21 +214,21 @@ fun Application.configureAkatsukiApi(
                 call.respond(HttpStatusCode.OK, activeSession.toDto())
             }
 
-            // 3.7 POST /api/v1/auth/revoke (Bearer Token)
+            // POST /api/v1/auth/revoke (Bearer Token)
             post("/auth/revoke") {
                 val token = call.requireAuthenticatedToken()
                 managePinAndPairingUseCase.revokeSession(token)
                 call.respond(HttpStatusCode.OK, RevokeResponseDto(revoked = true))
             }
 
-            // 3.7 GET /api/v1/device/storage (Bearer Token)
+            // GET /api/v1/device/storage (Bearer Token)
             get("/device/storage") {
                 call.requireAuthenticatedToken()
                 val metrics = fileOperationsUseCases.getStorageMetrics()
                 call.respond(HttpStatusCode.OK, metrics.toDto())
             }
 
-            // 3.3 GET /api/v1/files/list?path=/storage/emulated/0 (Bearer Token)
+            // GET /api/v1/files/list?path=/storage/emulated/0 (Bearer Token)
             get("/files/list") {
                 call.requireAuthenticatedToken()
                 val requestedPath = call.request.queryParameters["path"] ?.takeIf { it.isNotBlank() } ?: "/storage/emulated/0"
@@ -236,7 +236,7 @@ fun Application.configureAkatsukiApi(
                 call.respond(HttpStatusCode.OK, listing.toDto())
             }
 
-            // 3.6 POST /api/v1/files/mkdir (Bearer Token)
+            // POST /api/v1/files/mkdir (Bearer Token)
             post("/files/mkdir") {
                 call.requireAuthenticatedToken()
                 val body = runCatching { call.receive<PathActionRequestDto>() }.getOrElse {
@@ -249,7 +249,7 @@ fun Application.configureAkatsukiApi(
                 )
             }
 
-            // 3.6 DELETE /api/v1/files/delete (Bearer Token)
+            // DELETE /api/v1/files/delete (Bearer Token)
             delete("/files/delete") {
                 call.requireAuthenticatedToken()
                 val queryPath = call.request.queryParameters["path"]
@@ -273,7 +273,7 @@ fun Application.configureAkatsukiApi(
                 )
             }
 
-            // 3.4 GET /api/v1/files/download (Transferencia Android -> PC con Streaming 64KB + X-File-SHA256 + Range)
+            // GET /api/v1/files/download (Transferencia Android -> Cliente con Streaming 64KB + X-File-SHA256 + Range)
             get("/files/download") {
                 call.requireAuthenticatedToken()
                 val requestedPath = call.request.queryParameters["path"]
@@ -282,7 +282,7 @@ fun Application.configureAkatsukiApi(
                 val (descriptor, file) = fileOperationsUseCases.prepareDownload(requestedPath)
                 val totalSize = descriptor.sizeBytes
 
-                // Cabeceras obligatorias de la especificación 3.4
+                // Cabeceras obligatorias de la especificación
                 call.response.header("X-File-SHA256", descriptor.sha256)
                 call.response.header(HttpHeaders.AcceptRanges, "bytes")
                 call.response.header(
@@ -333,7 +333,7 @@ fun Application.configureAkatsukiApi(
                 }
             }
 
-            // 3.5 POST /api/v1/files/upload (Transferencia PC -> Android con Streaming 64KB + .part + SHA-256)
+            // POST /api/v1/files/upload (Transferencia Cliente -> Android con Streaming 64KB + .part + SHA-256)
             post("/files/upload") {
                 call.requireAuthenticatedToken()
 
@@ -437,7 +437,7 @@ private fun parseHttpByteRange(rangeHeader: String?, totalSize: Long): Pair<Long
         endStr.toLongOrNull()?.coerceAtMost(totalSize - 1L) ?: return null
     }
 
-    if (startOffset < 0L || startOffset >= totalSize || endOffset < startOffset) {
+    if (startOffset !in 0L..<totalSize || endOffset < startOffset) {
         return null
     }
 

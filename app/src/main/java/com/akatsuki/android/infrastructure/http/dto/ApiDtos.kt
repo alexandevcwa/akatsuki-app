@@ -9,11 +9,10 @@ import com.akatsuki.android.domain.model.VerifiedUploadResult
 import kotlinx.serialization.Serializable
 
 /**
- * Modelos JSON con propiedades estrictamente en camelCase para coincidir con
- * #[serde(rename_all = "camelCase")] del cliente Rust (akatsuki-desktop).
+ * Modelos JSON con propiedades estrictamente en camelCase
  */
 
-// 3.1 GET /api/v1/health
+// GET /api/v1/health
 @Serializable
 data class HealthResponseDto(
     val status: String = "online",
@@ -24,10 +23,10 @@ data class HealthResponseDto(
     val tlsCertFingerprintSha256: String
 )
 
-// 3.2 POST /api/v1/auth/pair
+// POST /api/v1/auth/pair
 @Serializable
 data class PairRequestDto(
-    val clientName: String = "Akatsuki Desktop",
+    val clientName: String = "Akatsuki Client",
     val pinCode: String
 )
 
@@ -52,7 +51,7 @@ data class ActiveSessionResponseDto(
     val androidStorageFreeBytes: Long
 )
 
-// 3.3 GET /api/v1/files/list
+// GET /api/v1/files/list
 @Serializable
 data class FileEntryDto(
     val name: String,
@@ -70,7 +69,7 @@ data class DirectoryListingResponseDto(
     val entries: List<FileEntryDto>
 )
 
-// 3.5 POST /api/v1/files/upload
+// POST /api/v1/files/upload
 @Serializable
 data class UploadVerifiedResponseDto(
     val verified: Boolean,
@@ -79,7 +78,7 @@ data class UploadVerifiedResponseDto(
     val sha256: String
 )
 
-// 3.6 POST /api/v1/files/mkdir & DELETE /api/v1/files/delete
+// POST /api/v1/files/mkdir & DELETE /api/v1/files/delete
 @Serializable
 data class PathActionRequestDto(
     val path: String
@@ -97,7 +96,7 @@ data class DeleteResponseDto(
     val path: String
 )
 
-// 3.7 GET /api/v1/device/storage & POST /api/v1/auth/revoke
+// GET /api/v1/device/storage & POST /api/v1/auth/revoke
 @Serializable
 data class StorageResponseDto(
     val androidStorageTotalBytes: Long,

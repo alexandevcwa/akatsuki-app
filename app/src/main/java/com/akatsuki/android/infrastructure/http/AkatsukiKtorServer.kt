@@ -27,6 +27,7 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Gestor del ciclo de vida del Servidor Web HTTPS embebido (Ktor + Netty + TLS 1.3).
@@ -240,7 +241,7 @@ class AkatsukiKtorServer(
         synchronized(refreshLock) {
             networkRefreshJob?.cancel()
             networkRefreshJob = serverScope.launch {
-                delay(450L)
+                delay(450L.milliseconds)
                 refreshNetworkAndMdns(sessionToken)
             }
         }

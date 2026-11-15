@@ -67,7 +67,7 @@ internal data class NetworkInterfaceSnapshot(
 /**
  * Publicación de Servicio mDNS/NSD y Resolución de IP LAN (Parte 2 y Parte 4.4):
  * - En la red LAN (estándar DNS-SD / Rust `mdns-sd`) el servicio se anuncia sobre UDP 5353 como:
- *   - FQDN: `_akatsuki._tcp.local.` (`AkatsukiNode._akatsuki._tcp.local.`)
+ *   - FQDN: `_akatsuki._tcp.local.` (`AkatsukiServer._akatsuki._tcp.local.`)
  *   - Puerto SRV destino: puerto HTTPS configurado (8443 por defecto)
  *   - Atributos TXT: "fp" (huella SHA-256), "id" (deviceId), "name" (alias opcional)
  * - Nota de Android `NsdManager`: `NsdServiceInfo.serviceType` NO debe incluir `.local.` porque

@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit
  *   X.509 v3 Autofirmado con validez de 10 años.
  * - Almacena el certificado en un KeyStore PKCS12 privado de la aplicación.
  * - Calcula la huella SHA-256 sobre el certificado DER en formato hexadecimal separado por
- *   dos puntos (ej. "9F:86:D0:81:..."), requerido por el verificador TOFU de Rust en akatsuki-desktop.
+ *   dos puntos (ej. "9F:86:D0:81:...")
  */
 class TlsCertificateManager(
     private val keyStoreDir: File
@@ -64,7 +64,7 @@ class TlsCertificateManager(
 
         /**
          * Calcula el hash SHA-256 de los bytes DER del certificado X.509 y lo formatea en
-         * hexadecimal mayúsculas separado por ':' (ej. "9F:86:D0:81:...").
+         * hexadecimal mayúsculas separado por ':'
          */
         fun computeSha256Fingerprint(certificate: X509Certificate): String {
             val digest = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
